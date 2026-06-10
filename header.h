@@ -3,13 +3,10 @@
 
 #include <Arduino.h>
 #include <ax12.h>
-#include <IRremote.h>
 
-int RECV_PIN = 2;
 
-IRrecv irrecv(RECV_PIN);
+int IR_PIN = 2;
 
-decode_results results;
 
 // ====== Reglages (a ajuster apres le test en l'air) ======
 const int CENTRE  = 512;   // position neutre des servos

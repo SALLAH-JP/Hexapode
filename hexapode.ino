@@ -1,5 +1,4 @@
 #include <ax12.h>
-#include <IRremote.h>
 #include "header.h"
 
 // =====================================================================
@@ -24,15 +23,16 @@ void aide() {
 
 void setup() {
   Serial.begin(9600);
-  irrecv.enableIRIn();
+  pinMode(IR_PIN, INPUT);
   hexaInit();
 }
 
 void loop() {
   // --- lecture des commandes ---
-  if (irrecv.decode(&results)) {
-    Serial.println(results.value, HEX);
-    switch (results.value) {
+  unsigned long code = lireIR();
+  if (code != 0) {
+    Serial.println(code, HEX);
+    switch (code) {
       case 0xFF18E7 : mode = AVANCER; break;
       case 0xFF4AB5 : mode = RECULER; break;
       case 0xFF10EF : mode = GAUCHE;  break;
@@ -45,7 +45,7 @@ void loop() {
       case 0xFF906F : hauteur = H_DEBOUT;   break;
     }
     
-    irrecv.resume();
+    delay(200);
   }
 
   // --- execution du mode courant ---

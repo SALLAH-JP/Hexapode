@@ -67,3 +67,37 @@ void hexaInit() {
   posePattes(H_DEBOUT);
   delay(1500);
 }
+
+
+
+unsigned long mesurer(int niveau, unsigned long timeout_us) {
+  unsigned long debut = micros();
+  while (digitalRead(IR_PIN) == niveau) {
+    if (micros() - debut > timeout_us) return 0;
+  }
+  return micros() - debut;
+}
+
+unsigned long lireIR() {
+  if (digitalRead(IR_PIN) == HIGH) return 0;        // repos : rien en cours
+
+  // 1) mark de tete : LOW ~9 ms
+  if (mesurer(LOW, 12000UL) < 8000) return 0;
+  // 2) space de tete : HIGH ~4,5 ms
+  if (mesurer(HIGH, 6000UL) < 3000) return 0;
+
+  // 3) 32 bits
+  unsigned long code = 0;
+  for (int i = 0; i < 32; i++) {
+    if (mesurer(LOW, 2000UL) == 0) return 0;        // mark du bit (~560 us)
+    unsigned long espace = mesurer(HIGH, 3000UL);   // 560 us (0) ou 1690 us (1)
+    if (espace == 0) return 0;
+    code <<= 1;
+    if (espace > 1000) code |= 1;                   // espace long = bit 1
+  }
+  return code;
+}
+
+
+
+
