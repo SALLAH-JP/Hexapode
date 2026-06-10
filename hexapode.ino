@@ -2,60 +2,60 @@
 #include "header.h"
 
 // =====================================================================
-//   HEXAPODE COMMANDABLE  (PhantomX / ArbotiX / 18x AX-12A)
-//   Pilotage au clavier via le Serial Monitor (38400 baud).
-//
-//   *** TESTER D'ABORD ROBOT EN L'AIR et ajuster les signes ***
-//   dans hexapode.cpp (colonnes sCoxa / sFemur).
+//   HEXAPODE COMMANDABLE PAR TELECOMMANDE IR (decodeur NEC sans lib)
+//   L'IR est scrute PENDANT les pauses de la demarche via attente(),
+//   donc les appuis sont captes meme quand le robot marche.
 // =====================================================================
 
-Mode mode    = STOP;        // mode de deplacement courant
-int  hauteur = H_DEBOUT;    // etat de hauteur (independant du deplacement)
+Mode mode    = STOP;
+int  hauteur = H_DEBOUT;
 
-void aide() {
-  Serial.println("=== Hexapode - commandes ===");
-  Serial.println("z = avancer     s = reculer");
-  Serial.println("q = gauche      d = droite");
-  Serial.println("o = rond        l = lever une patte");
-  Serial.println("c = accroupie   h = debout haut");
-  Serial.println("x = stop");
+// Lit l'IR et met a jour mode / hauteur
+void traiterIR() {
+  unsigned long code = lireIR();
+  if (code == 0) return;
+
+  Serial.print("IR: 0x");
+  Serial.println(code, HEX);
+
+  switch (code) {
+    case 0xFF18E7: mode = AVANCER; break;
+    case 0xFF4AB5: mode = RECULER; break;
+    case 0xFF10EF: mode = GAUCHE;  break;
+    case 0xFF5AA5: mode = DROITE;  break;
+    case 0xFF9867: mode = ROND;    break;
+    case 0xFFB04F: mode = LEVER;   break;
+    case 0xFFA25D: mode = STOP;    break;
+    case 0xFFA857: hauteur = H_ACCROUPI; break;
+    case 0xFF906F: hauteur = H_DEBOUT;   break;
+  }
+}
+
+// Attente qui scrute l'IR en continu (remplace delay)
+void attente(int ms) {
+  unsigned long fin = millis() + (unsigned long)ms;
+  while (millis() < fin) {
+    traiterIR();
+  }
 }
 
 void setup() {
-  Serial.begin(9600);
+  Serial.begin(38400);
   pinMode(IR_PIN, INPUT);
   hexaInit();
+  Serial.println("Hexapode IR pret.");
 }
 
 void loop() {
-  // --- lecture des commandes ---
-  unsigned long code = lireIR();
-  if (code != 0) {
-    Serial.println(code, HEX);
-    switch (code) {
-      case 0xFF18E7 : mode = AVANCER; break;
-      case 0xFF4AB5 : mode = RECULER; break;
-      case 0xFF10EF : mode = GAUCHE;  break;
-      case 0xFF5AA5 : mode = DROITE;  break;
-      case 0xFF9867 : mode = ROND;    break;
-      case 0xFFB04F : mode = LEVER;   break;
-      case 0xFFA25D : mode = STOP;    break;
-      // accroupie / debout : changent juste l'ETAT, le deplacement continue
-      case 0xFFA857 : hauteur = H_ACCROUPI; break;
-      case 0xFF906F : hauteur = H_DEBOUT;   break;
-    }
-    
-    delay(200);
-  }
+  traiterIR();
 
-  // --- execution du mode courant ---
   switch (mode) {
     case AVANCER: pasGait(+100, +100, hauteur); break;
     case RECULER: pasGait(-100, -100, hauteur); break;
-    case GAUCHE:  pasGait(-100, +100, hauteur); break;   // gauche recule, droite avance
+    case GAUCHE:  pasGait(-100, +100, hauteur); break;
     case DROITE:  pasGait(+100, -100, hauteur); break;
-    case ROND:    pasGait(+100,  +40, hauteur); break;   // avance en tournant
+    case ROND:    pasGait(+100,  +40, hauteur); break;
     case LEVER:   leverUnePatte();              break;
-    case STOP:    posePattes(hauteur); delay(50); break;
+    case STOP:    posePattes(hauteur); attente(50); break;
   }
 }
