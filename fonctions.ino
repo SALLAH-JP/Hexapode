@@ -59,7 +59,6 @@ void hexaInit() {
 }
 
 // ====== Decodeur NEC sans librairie ======
-// noInterrupts() pendant la lecture pour ne pas corrompre le bus AX-12A
 static unsigned long mesurer(int niveau, unsigned long timeout_us) {
   unsigned long debut = micros();
   while (digitalRead(IR_PIN) == niveau) {
@@ -71,20 +70,16 @@ static unsigned long mesurer(int niveau, unsigned long timeout_us) {
 unsigned long lireIR() {
   if (digitalRead(IR_PIN) == HIGH) return 0;
 
-  noInterrupts();   // bloquer les interruptions pendant la trame NEC (~67 ms max)
-
-  if (mesurer(LOW, 12000UL) < 8000) { interrupts(); return 0; }
-  if (mesurer(HIGH, 6000UL) < 3000) { interrupts(); return 0; }
+  if (mesurer(LOW, 12000UL) < 8000) return 0;     // mark de tete ~9 ms
+  if (mesurer(HIGH, 6000UL) < 3000) return 0;     // space de tete ~4,5 ms
 
   unsigned long code = 0;
   for (int i = 0; i < 32; i++) {
-    if (mesurer(LOW, 2000UL) == 0)          { interrupts(); return 0; }
+    if (mesurer(LOW, 2000UL) == 0) return 0;
     unsigned long espace = mesurer(HIGH, 3000UL);
-    if (espace == 0)                        { interrupts(); return 0; }
+    if (espace == 0) return 0;
     code <<= 1;
     if (espace > 1000) code |= 1;
   }
-
-  interrupts();     // relacher les interruptions immediatement apres
   return code;
 }
