@@ -1,119 +1,82 @@
-# 🕷️ Hexapode Commandable — PhantomX / ArbotiX
+# Hexapode PhantomX — commande par télécommande IR
 
-Robot hexapode (6 pattes, 18 servos AX-12A) piloté au clavier : déplacement, rotation, marche en cercle, changement de posture et lever de patte. Basé sur un châssis **Trossen PhantomX** avec contrôleur **ArbotiX-M**.
+Robot hexapode (6 pattes, 18 servos Dynamixel AX-12A) piloté par une
+télécommande infrarouge, sur carte **ArbotiX-M** (ATmega644p).
 
----
+## Matériel
 
-## 🎥 Démonstration vidéo
+- **Carte** : ArbotiX-M Robocontroller (ATmega644p, 16 MHz)
+- **Servos** : 18 × Dynamixel AX-12A, IDs 1 à 18, bus TTL 1 Mbps
+- **Récepteur IR** : module type VS1838B / TSOP, sortie sur la **broche 2** (signal),
+  alimenté en 5 V et GND par le connecteur 3 broches de l'ArbotiX
+  (Signal–Voltage–Ground, le signal étant la broche la plus proche du processeur)
+- **Alimentation** : batterie LiPo 3S (11,1 V) sur le jack d'alimentation
+- **Programmation** : adaptateur FTDI (UartSBee en 3V3), Arduino IDE 1.0.6 + core ArbotiX
 
-<!-- Remplace VIDEO_ID par l'identifiant de ta vidéo YouTube -->
-[![Démonstration de l'hexapode](https://img.youtube.com/vi/VIDEO_ID/0.jpg)](https://www.youtube.com/watch?v=VIDEO_ID)
+## Installation logicielle
 
-> *🎬 Vidéo à venir — lien à insérer ici.*
+1. Arduino IDE **1.0.6** (les versions récentes ne compilent pas le core ArbotiX).
+2. Copier le core ArbotiX (branche `master`) dans
+   `Documents/Arduino/hardware/arbotix/` et la bibliothèque dans
+   `Documents/Arduino/libraries/`.
+3. Carte : **ArbotiX** (pas « ArbotiX w/ RX Shield »).
+4. Bon port COM, switch du FTDI sur **3V3**.
+5. Moniteur série à **38400 bauds**.
 
----
+## Organisation du code
 
-## 📋 Description
+Le projet tient dans **un seul fichier** `robot_direct.ino` placé dans un dossier
+du même nom (`robot_direct`). Ne rien mettre d'autre dans le dossier : l'IDE
+compile tous les fichiers présents, et d'anciens fichiers fausseraient le résultat.
 
-L'hexapode se déplace grâce à une **démarche tripode** (deux groupes de 3 pattes en alternance). Le pilotage se fait par **commandes série** (Serial Monitor à 38400 bauds), ce qui permet ensuite un pilotage **sans fil** en branchant simplement un module Bluetooth ou XBee sur le même port série, sans changer le code.
+## Commandes (codes NEC)
 
-Fonctions disponibles :
-- Avancer / reculer
-- Tourner à gauche / à droite (différentiel)
-- Marcher en faisant un cercle
-- Lever une patte
-- Changer de posture : **accroupie** ou **debout haut** (indépendant du déplacement)
+| Touche | Code IR     | Action                                  |
+|--------|-------------|-----------------------------------------|
+| Avancer| `0xFF18E7`  | rafale de `NB_PAS` pas en avant         |
+| Reculer| `0xFF4AB5`  | rafale en arrière                       |
+| Gauche | `0xFF10EF`  | rafale en tournant à gauche             |
+| Droite | `0xFF5AA5`  | rafale en tournant à droite             |
+| Rond   | `0xFF9867`  | avance en tournant (cercle)             |
+| Salut  | `0xFFB04F`  | lève une patte avant et fait un coucou  |
+| Stop   | `0xFFA25D`  | arrêt, retour au repos                  |
+| Accroupi| `0xFFA857` | baisse le corps                         |
+| Debout | `0xFF906F`  | relève le corps                         |
 
----
+Un appui = `NB_PAS` pas, puis retour au repos. STOP et les changements de
+direction sont pris en compte entre deux pas. Tapoter enchaîne les rafales.
 
-## 🦿 Matériel
+## Réglages (en haut du fichier)
 
-| Élément | Détail |
-|---|---|
-| Châssis | Hexapode PhantomX (Trossen Robotics) |
-| Contrôleur | ArbotiX-M Robocontroller (ATmega644p) |
-| Servomoteurs | 18 × Dynamixel **AX-12A** (IDs 1 à 18) |
-| Alimentation | Batterie **LiPo 3S 11,1 V** |
-| Programmation | Adaptateur **UartSBee** (FTDI-USB, switch sur **3V3**) |
+| Paramètre   | Rôle                                         | Valeur actuelle |
+|-------------|----------------------------------------------|-----------------|
+| `NB_PAS`    | nombre de pas par appui                      | 6               |
+| `SWING`     | course du pied (avant/arrière)               | 90              |
+| `LIFT`      | hauteur de lever d'une patte                 | 150             |
+| `H_DEBOUT`  | hauteur du corps debout                      | 100             |
+| `VITESSE`   | vitesse des servos (petit = plus vif)        | 120             |
+| `PAUSE`     | durée entre les phases d'un pas (ms)         | 200             |
 
----
+### Régler la marche
 
-## 📁 Structure du projet
+Si le robot **glisse au lieu d'avancer** : augmenter `LIFT` (la patte doit
+décoller franchement du sol) et `H_DEBOUT` (les pieds appuient mieux).
+Si un pas est trop court : augmenter `SWING`.
+Si une direction est inversée, c'est un signe `sCoxa`/`sFemur` à changer dans
+les tableaux `A` et `B` (colonnes 4 et 5).
 
-```
-hexapode_commande/
-├── hexapode_commande.ino   # Programme principal (commandes + machine à états)
-├── hexapode.h              # Déclarations : constantes, modes, prototypes
-└── hexapode.cpp            # Fonctions : démarche, postures, init
-```
+## Détails techniques
 
-Sketches utilitaires (diagnostic) :
-- `scan_servos_ax12.ino` — vérifie que les 18 servos répondent et lit leurs positions
-- `test_mouvement_ax12.ino` — test de commande (petites oscillations)
+- **Décodeur IR sans bibliothèque** : `lireIR()` décode les trames NEC par
+  mesure de durées (sondage). Fiable pour les commandes ; les répétitions ne
+  sont pas exploitées (la télécommande utilisée n'en émet pas de façon stable),
+  d'où le choix « un appui = plusieurs pas ».
+- **Initialisation des servos** : `initServos()` réactive le couple et vide le
+  registre d'erreur des 18 servos (utile après une surcharge en marche).
+- **Démarche tripode** : deux groupes de 3 pattes (`A` et `B`) alternent
+  appui au sol et retour en l'air.
 
----
+## Sécurité batterie
 
-## ⚙️ Installation
-
-1. **Arduino IDE 1.0.6** (⚠️ *pas* la version 2.x : le core ArbotiX est incompatible avec l'IDE récent).
-2. Installer le **core ArbotiX** (dépôt `vanadiumlabs/arbotix`, branche `master`, ancien format) : copier les dossiers `hardware` et `libraries` dans le dossier *sketchbook*.
-3. Brancher le **UartSBee** (switch sur **3V3**) : USB côté PC, câble FTDI côté ArbotiX (fil **vert → GRN**, fil **noir → BLK**).
-4. Dans l'IDE : **Tools → Board → ArbotiX**, puis sélectionner le bon port COM.
-5. Ouvrir `hexapode_commande.ino` (les 3 fichiers doivent être dans le même dossier), puis **Upload**.
-
----
-
-## 🎮 Commandes
-
-Ouvrir le **Serial Monitor** à **38400 bauds**, taper la touche puis Entrée :
-
-| Touche | Action |
-|:---:|---|
-| `z` | Avancer |
-| `s` | Reculer |
-| `q` | Tourner à gauche |
-| `d` | Tourner à droite |
-| `o` | Marcher en cercle |
-| `l` | Lever une patte |
-| `c` | Posture accroupie |
-| `h` | Posture debout haut |
-| `x` | Stop |
-
-> `c` et `h` changent uniquement la **hauteur du corps** : on peut continuer à se déplacer accroupi ou debout.
-
----
-
-## 🔧 Calibration (à faire une fois)
-
-⚠️ **Premier essai toujours robot EN L'AIR** (corps surélevé, pattes dans le vide).
-
-1. Taper `z` (avancer) et observer : les 2 trépieds doivent **alterner**, les pieds levés monter **vers le haut** et balancer **vers l'avant**.
-2. Corriger les signes dans `hexapode.cpp` (colonnes `sCoxa` / `sFemur`) :
-   - Patte qui se lève vers le bas → inverser son `sFemur`
-   - Patte qui balance vers l'arrière → inverser son `sCoxa`
-3. Quand le motif est correct en l'air → régler `H_DEBOUT` (≈ 40–90) pour la posture au sol.
-4. Ajuster `SWING`, `LIFT`, `PAUSE`, `VITESSE` au besoin (amplitude / vitesse).
-
----
-
-## 🔋 Batterie & charge
-
-- Batterie : **LiPo 3S (11,1 V)**, à charger avec un **chargeur à équilibrage 3S**.
-- Brancher le **connecteur d'équilibrage** (blanc, 4 fils) sur le port **3S** du chargeur, fil **noir côté −**.
-- LED chargeur : **rouge = en charge**, **verte = chargée**, **rouge clignotante = polarité inversée / court-circuit → débrancher**.
-
-### ⚠️ Sécurité
-- Ne **jamais** charger une LiPo sans surveillance ; surface non inflammable.
-- Arrêter si la batterie **gonfle, chauffe ou sent bizarre**.
-- Garder un **doigt près de l'alimentation** lors des premiers essais de marche.
-- Tester en l'air avant de poser le robot au sol.
-
----
-
-## 👤 Auteur
-
-**SALLAH Jean-Paul** — [@SALLAH-JP](https://github.com/SALLAH-JP)
-
----
-
-*Projet réalisé sur un hexapode PhantomX (Trossen Robotics) — Université des Mascareignes.*
+Charger les LiPo sur chargeur équilibreur (iMAX B6), 1C max, sous surveillance,
+sur surface ininflammable. Arrêter si la batterie chauffe ou gonfle.
