@@ -10,12 +10,12 @@
 const int IR_PIN  = 2;
 const int CENTRE  = 512;
 const int SWING   = 100;    // course du pied (avant/arriere)
-const int LIFT    = 200;    // hauteur de lever d'une patte (plus haut = moins de glisse)
+const int LIFT    = 350;    // hauteur de lever d'une patte (plus haut = moins de glisse)
 const int VITESSE = 200;    // vitesse servos (plus petit = plus vif et ferme)
-const int PAUSE   = 150;    // ms entre phases
+const int PAUSE   = 300;    // ms entre phases
 const int H_DEBOUT   = 80; // corps plus haut -> les pieds appuient mieux
 const int H_ACCROUPI = 0;
-const int NB_PAS  = 3;     // <-- nombre de pas par appui (monte/descend a ton gout)
+const int NB_PAS  = 2;     // <-- nombre de pas par appui (monte/descend a ton gout)
 
 int hauteur = H_DEBOUT;
 
@@ -71,7 +71,7 @@ void ecrirePatte(int p[6], int sG, int sD, int h, int coxaDir, bool lift) {
   int stride   = (p[5] == 0) ? sG : sD;
   int coxaMove = (long)p[3] * SWING * stride / 100;
   SetPosition(p[0], CENTRE + coxaDir * coxaMove);
-  SetPosition(p[1], CENTRE + p[4] * h + (lift ? p[4] * LIFT : 0));
+  SetPosition(p[1], CENTRE + p[4] * h - (lift ? p[4] * LIFT : 0));
   SetPosition(p[2], CENTRE + p[4] * h);
 }
 
@@ -125,10 +125,10 @@ void salut() {
 
 void faireUnPas(unsigned long code, int h) {
   switch (code) {
-    case 0xFF18E7: unPas(+100, +100, h); break; // avancer
-    case 0xFF4AB5: unPas(-100, -100, h); break; // reculer
-    case 0xFF5AA5: unPas(-100, +100, h); break; // gauche
-    case 0xFF10EF: unPas(+100, -100, h); break; // droite
+    case 0xFF4AB5: unPas(+100, +100, h); break; // avancer
+    case 0xFF18E7: unPas(-100, -100, h); break; // reculer
+    case 0xFF10EF: unPas(-100, +100, h); break; // gauche
+    case 0xFF5AA5: unPas(+100, -100, h); break; // droite
     case 0xFF9867: unPas(+100,  +40, h); break; // rond
   }
 }
